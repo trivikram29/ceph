@@ -235,6 +235,7 @@ noinst_HEADERS += \
 	common/ContextCompletion.h \
 	common/bit_vector.hpp \
 	common/SubProcess.h \
+	common/blkin_wrapper.h \
 	common/valgrind.h
 
 if ENABLE_XIO
