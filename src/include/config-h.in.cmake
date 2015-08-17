@@ -235,4 +235,7 @@
 /* Defined if CDS */
 #cmakedefine HAVE_CDS
 
+/* Defined if blkin enabled */
+#cmakedefine WITH_BLKIN
+
 #endif /* CONFIG_H */

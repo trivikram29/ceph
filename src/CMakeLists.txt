@@ -79,6 +79,10 @@ if(WITH_CDS)
   list(APPEND EXTRALIBS ${CDS_LIBS})
 endif(WITH_CDS)
 
+if(WITH_BLKIN)
+  include_directories(${BLKIN_INCLUDE_DIR})
+endif(WITH_BLKIN)
+
 if(USE_NSS)
   if(NSS_FOUND)
     if(NSPR_FOUND)
@@ -343,7 +347,7 @@ endif(${WITH_PROFILER})
 
 add_library(common_utf8 STATIC common/utf8.c)
 
-target_link_libraries( common json_spirit common_utf8 erasure_code rt uuid ${CRYPTO_LIBS} ${Boost_LIBRARIES})
+target_link_libraries(common json_spirit common_utf8 erasure_code rt uuid ${CRYPTO_LIBS} ${Boost_LIBRARIES} ${BLKIN_LIBRARIES})
 
 set(libglobal_srcs
   global/global_init.cc
@@ -373,6 +377,7 @@ set(osdc_rbd_files
   osdc/Striper.cc)
 add_library(osdc_rbd_objs OBJECT ${osdc_rbd_files})
 add_library(osdc STATIC ${osdc_files} $<TARGET_OBJECTS:osdc_rbd_objs>)
+target_link_libraries(osdc ${BLKIN_LIBRARIES})
 
 set(librados_srcs
   librados/librados.cc
@@ -388,7 +393,7 @@ add_library(librados ${CEPH_SHARED} ${librados_srcs}
 add_dependencies(librados osdc)
 target_link_libraries(librados PRIVATE osdc osd os global common cls_lock_client
   ${BLKID_LIBRARIES}
-  ${CRYPTO_LIBS} ${EXTRALIBS} ${TCMALLOC_LIBS})
+  ${CRYPTO_LIBS} ${EXTRALIBS} ${TCMALLOC_LIBS} ${BLKIN_LIBRARIES})
 if(${ENABLE_SHARED})
   set_target_properties(librados PROPERTIES OUTPUT_NAME rados VERSION 2.0.0
     SOVERSION 2)
@@ -545,13 +550,14 @@ add_library(common_util_obj OBJECT ${common_util_src})
 add_library(mon STATIC ${lib_mon_srcs} $<TARGET_OBJECTS:mon_common_objs>
   $<TARGET_OBJECTS:os_mon_objs> $<TARGET_OBJECTS:osd_mon_objs>
   $<TARGET_OBJECTS:common_util_obj>)
+target_link_libraries(mon ${BLKIN_LIBRARIES})
 
 set(ceph_mon_srcs
   ceph_mon.cc
   common/TextTable.cc)
 add_executable(ceph-mon ${ceph_mon_srcs} $<TARGET_OBJECTS:heap_profiler_objs>)
 target_link_libraries(ceph-mon mon boost_thread common os global ${EXTRALIBS}
-  ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS})
+  ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS} ${BLKIN_LIBRARIES})
 install(TARGETS ceph-mon DESTINATION bin)
 
 # OSD
@@ -583,7 +589,7 @@ add_library(os STATIC ${libos_srcs} $<TARGET_OBJECTS:os_mon_objs>)
 if(${HAVE_LIBAIO})
   target_link_libraries(os aio)
 endif(${HAVE_LIBAIO})
-target_link_libraries(os leveldb snappy)
+target_link_libraries(os leveldb snappy ${BLKIN_LIBRARIES})
 
 set(cls_references_files objclass/class_api.cc)
 add_library(cls_references_objs OBJECT ${cls_references_files})
@@ -620,7 +626,7 @@ set(osd_mon_files
 add_library(osd_mon_objs OBJECT ${osd_mon_files})
 add_library(osd STATIC ${osd_srcs} $<TARGET_OBJECTS:osd_mon_objs>
   $<TARGET_OBJECTS:cls_references_objs>)
-target_link_libraries(osd dl leveldb)
+target_link_libraries(osd dl leveldb ${BLKIN_LIBRARIES})
 
 set(ceph_osd_srcs
   ceph_osd.cc
@@ -628,7 +634,8 @@ set(ceph_osd_srcs
 add_executable(ceph-osd ${ceph_osd_srcs}
   $<TARGET_OBJECTS:heap_profiler_objs>
   $<TARGET_OBJECTS:common_util_obj>)
-target_link_libraries(ceph-osd osd os global ${BLKID_LIBRARIES} ${TCMALLOC_LIBS})
+target_link_libraries(ceph-osd osd os global ${BLKID_LIBRARIES} ${TCMALLOC_LIBS}
+  ${BLKIN_LIBRARIES})
 install(TARGETS ceph-osd DESTINATION bin)
 
 # MDS
@@ -836,7 +843,7 @@ if(${WITH_RBD})
     $<TARGET_OBJECTS:osdc_rbd_objs>
     $<TARGET_OBJECTS:common_util_obj>)
   target_link_libraries(librbd PRIVATE librados common cls_lock_client cls_rbd_client
-    ${CMAKE_DL_LIBS})
+    ${CMAKE_DL_LIBS} ${BLKIN_LIBRARIES})
   if(${ENABLE_SHARED})
     set_target_properties(librbd PROPERTIES VERSION "1.0.0" SOVERSION "1"
       OUTPUT_NAME rbd)
