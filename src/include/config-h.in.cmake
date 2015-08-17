@@ -237,4 +237,7 @@
 #cmakedefine HAVE_GPERFTOOLS_MALLOC_EXTENSION_H
 #cmakedefine HAVE_GPERFTOOLS_PROFILER_H
 
+/* Defined if blkin enabled */
+#cmakedefine WITH_BLKIN
+
 #endif /* CONFIG_H */
