@@ -116,6 +116,7 @@ void complain_about_parse_errors(CephContext *cct,
 void common_init_finish(CephContext *cct, int flags)
 {
   cct->init_crypto();
+  ZTracer::ztrace_init();
 
   if (!(flags & CINIT_FLAG_NO_DAEMON_ACTIONS))
     cct->start_service_thread();
