@@ -1972,6 +1972,7 @@ int AsyncConnection::send_message(Message *m)
                                << " Drop message " << m << dendl;
     m->put();
   } else {
+    m->trace.event("async enqueueing message");
     out_q[m->get_priority()].push_back(make_pair(bl, m));
     ldout(async_msgr->cct, 15) << __func__ << " inline write is denied, reschedule m=" << m << dendl;
     center->dispatch_event_external(write_handler);
@@ -2283,6 +2284,7 @@ int AsyncConnection::write_message(Message *m, bufferlist& bl)
     complete_bl.append((char*)&old_footer, sizeof(old_footer));
   }
 
+  m->trace.event("async writing message");
   logger->inc(l_msgr_send_bytes, complete_bl.length());
   ldout(async_msgr->cct, 20) << __func__ << " sending " << m->get_seq()
                              << " " << m << dendl;
