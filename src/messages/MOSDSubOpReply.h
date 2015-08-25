@@ -30,7 +30,7 @@
  */
 
 class MOSDSubOpReply : public Message {
-  static const int HEAD_VERSION = 2;
+  static const int HEAD_VERSION = 3;
   static const int COMPAT_VERSION = 1;
 public:
   epoch_t map_epoch;
@@ -84,6 +84,8 @@ public:
 	shard_id_t::NO_SHARD);
       pgid.shard = shard_id_t::NO_SHARD;
     }
+    if (header.version >= 3)
+      decode_trace(p);
   }
   virtual void encode_payload(uint64_t features) {
     ::encode(map_epoch, payload);
@@ -102,6 +104,7 @@ public:
     ::encode(attrset, payload);
     ::encode(from, payload);
     ::encode(pgid.shard, payload);
+    encode_trace(payload, features);
   }
 
   epoch_t get_map_epoch() { return map_epoch; }
