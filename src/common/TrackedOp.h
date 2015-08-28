@@ -189,6 +189,7 @@ protected:
 
 public:
   ZTracer::Trace osd_trace;
+  ZTracer::Trace pg_trace;
 
   virtual ~TrackedOp() {}
 
