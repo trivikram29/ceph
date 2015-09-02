@@ -201,7 +201,6 @@ public:
   IsPGRecoverablePredicate *get_is_recoverable_predicate() {
     return get_pgbackend()->get_is_recoverable_predicate();
   }
-  BLKIN_END_REF(pg_endpoint)
 protected:
   // Ops waiting for map, should be queued at back
   Mutex map_lock;
