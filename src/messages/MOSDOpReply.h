@@ -32,7 +32,7 @@
 
 class MOSDOpReply : public Message {
 
-  static const int HEAD_VERSION = 7;
+  static const int HEAD_VERSION = 6;
   static const int COMPAT_VERSION = 2;
 
   object_t oid;
@@ -143,15 +143,12 @@ public:
       if (ignore_out_data)
 	ops[i].outdata.clear();
     }
-    BLKIN_MSG_CHECK_SPAN();
   }
 private:
   ~MOSDOpReply() {}
 
 public:
   virtual void encode_payload(uint64_t features) {
-
-    BLKIN_GET_MASTER();
 
     OSDOp::merge_osd_op_vector_out_data(ops, data);
 
@@ -193,13 +190,10 @@ public:
       ::encode(replay_version, payload);
       ::encode(user_version, payload);
       ::encode(redirect, payload);
-
-      BLKIN_MSG_ENCODE_TRACE();
     }
   }
   virtual void decode_payload() {
     bufferlist::iterator p = payload.begin();
-    BLKIN_MSG_DO_INIT_TRACE();
     if (header.version < 2) {
       ceph_osd_reply_head head;
       ::decode(head, p);
@@ -251,8 +245,6 @@ public:
 
       if (header.version >= 6)
 	::decode(redirect, p);
-
-      BLKIN_MSG_DECODE_TRACE(7);
     }
   }
 
@@ -279,7 +271,6 @@ public:
     out << ")";
   }
 
-  BLKIN_MSG_END_DECL("MOSDOpReply")
 };
 
 
