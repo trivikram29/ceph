@@ -79,7 +79,6 @@ librados::RadosClient::RadosClient(CephContext *cct_)
     log_last_version(0), log_cb(NULL), log_cb_arg(NULL),
     finisher(cct)
 {
-  BLKIN_ZTRACE_INIT();
 }
 
 int64_t librados::RadosClient::lookup_pool(const char *name)
