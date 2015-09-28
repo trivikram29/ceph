@@ -22,6 +22,10 @@ link_directories(
   ${LEVELDB_PREFIX}/lib
 )
 
+# require c++11 or higher
+include(UseCxxStandard)
+use_cxx_standard(VERSIONS 14 11 WITHOUT_EXTENSIONS REQUIRED)
+
 #Check Includes
 include(CheckIncludeFiles)
 include(CheckIncludeFileCXX)

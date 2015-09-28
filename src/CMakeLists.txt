@@ -59,16 +59,6 @@ MESSAGE("HAVE_BETTER_YASM_ELF64=" ${HAVE_BETTER_YASM_ELF64})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -ftemplate-depth-1024 -Wno-invalid-offsetof -Wnon-virtual-dtor -Wno-invalid-offsetof -Wstrict-null-sentinel -Woverloaded-virtual")
 
-# require c++11
-include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-if (COMPILER_SUPPORTS_CXX11)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-else()
-  message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support.")
-endif()
-
-
 set(EXTRALIBS uuid rt dl ${Boost_LIBS} ${ATOMIC_OPS_LIBRARIES})
 
 if(${WITH_PROFILER})
