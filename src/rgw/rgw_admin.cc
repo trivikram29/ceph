@@ -92,6 +92,7 @@ void _usage()
   cerr << "  realm rename               rename a realm\n";
   cerr << "  realm set                  set realm info (requires infile)\n";
   cerr << "  realm default              set realm as default\n";
+  cerr << "  realm pull                 pull a realm and its current period\n";
   cerr << "  zonegroup add              add a zone to a zonegroup\n";
   cerr << "  zonegroup create           create a new zone group info\n";
   cerr << "  zonegroup default          set default zone group\n";
@@ -338,6 +339,7 @@ enum {
   OPT_REALM_RENAME,
   OPT_REALM_SET,
   OPT_REALM_DEFAULT,
+  OPT_REALM_PULL,
   OPT_PERIOD_PREPARE,
   OPT_PERIOD_DELETE,
   OPT_PERIOD_GET,
@@ -546,6 +548,8 @@ static int get_cmd(const char *cmd, const char *prev_cmd, const char *prev_prev_
       return OPT_REALM_SET;
     if (strcmp(cmd, "default") == 0)
       return OPT_REALM_DEFAULT;
+    if (strcmp(cmd, "pull") == 0)
+      return OPT_REALM_PULL;
   } else if (strcmp(prev_cmd, "zonegroup") == 0) {
     if (strcmp(cmd, "add") == 0)
       return OPT_ZONEGROUP_ADD;
@@ -2945,6 +2949,60 @@ int main(int argc, char **argv)
       cerr << "could not remove key: " << err_msg << std::endl;
       return -ret;
     }
+  case OPT_REALM_PULL:
+    {
+      RGWEnv env;
+      req_info info(g_ceph_context, &env);
+      info.method = "GET";
+      info.request_uri = "/admin/realm";
+
+      map<string, string> &params = info.args.get_params();
+      if (!realm_id.empty())
+        params["id"] = realm_id;
+      if (!realm_name.empty())
+        params["name"] = realm_name;
+
+      int ret = 0;
+
+      bufferlist bl;
+      JSONParser p;
+      if (!url.empty()) {
+        if (access_key.empty() || secret_key.empty()) {
+          cerr << "An --access-key and --secret must be provided with --url." << std::endl;
+          return -EINVAL;
+        }
+        RGWAccessKey key;
+        key.id = access_key;
+        key.key = secret_key;
+        ret = send_to_url(url, key, info, p, bl);
+      } else {
+        ret = send_to_remote_gateway(remote, info, p, bl);
+      }
+      if (ret < 0) {
+        cerr << "request failed: " << cpp_strerror(-ret) << std::endl;
+        return ret;
+      }
+      RGWRealm realm;
+      realm.init(g_ceph_context, store, false);
+      try {
+        decode_json_obj(realm, &p);
+      } catch (JSONDecoder::err& e) {
+        cout << "failed to decode JSON response: " << e.message << std::endl;
+        return -EINVAL;
+      }
+      ret = realm.create(false);
+      if (ret < 0) {
+        cerr << "Error storing realm " << realm.get_id() << ": "
+            << cpp_strerror(ret) << std::endl;
+        return ret;
+      }
+
+      encode_json("realm", realm, formatter);
+      formatter->flush(cout);
+      cout << std::endl;
+    }
+    return 0;
+
   case OPT_PERIOD_PUSH:
     {
       RGWEnv env;
