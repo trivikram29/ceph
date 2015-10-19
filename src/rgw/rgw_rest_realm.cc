@@ -72,11 +72,78 @@ void RGWOp_Period_Post::execute()
   http_ret = rgw_rest_get_json_input(store->ctx(), s, period,
                                      PERIOD_INPUT_MAX_LEN, &empty);
   if (http_ret < 0) {
-    dout(5) << "failed to decode period" << dendl;
+    derr << "failed to decode period" << dendl;
     return;
   }
 
-  period.store_info(false);
+  // TODO: require period.realm_id to match an existing realm
+
+  // nobody is allowed to push to the master zone
+  if (period.get_master_zone() == store->zone.get_id()) {
+    dout(10) << "master zone rejecting period id=" << period.get_id()
+        << " epoch=" << period.get_epoch() << dendl;
+    http_ret = -EINVAL; // XXX: error code
+    return;
+  }
+
+  auto &realm = store->realm;
+  const auto &current_period = store->current_period;
+
+  if (period.get_id() != current_period.get_id()) {
+    // new period must follow current period
+    if (period.get_predecessor() != current_period.get_id()) {
+      dout(10) << "current period " << current_period.get_id()
+          << " is not period " << period.get_id() << "'s predecessor" << dendl;
+      // XXX: this indicates a race between successive period updates. we should
+      // fetch this new period's predecessors until we have a full history, then
+      // set the latest period as the realm's current_period
+      http_ret = -ENOENT; // XXX: error code
+      return;
+    }
+
+    // write the period to rados
+    http_ret = period.store_info(false);
+    if (http_ret < 0) {
+      derr << "failed to store new period" << dendl;
+      return;
+    }
+
+    dout(4) << "current period " << current_period.get_id()
+        << " is period " << period.get_id() << "'s predecessor, "
+        "updating current period and notifying zone" << dendl;
+
+    realm.set_current_period(period.get_id());
+    // TODO: notify zone for dynamic reconfiguration
+    return;
+  }
+
+  if (period.get_epoch() <= current_period.get_epoch()) {
+    dout(10) << "period epoch " << period.get_epoch() << " is not newer "
+        "than current epoch " << current_period.get_epoch()
+        << ", discarding update" << dendl;
+    http_ret = -EEXIST; // XXX: error code
+    return;
+  }
+
+  // write the period to rados
+  http_ret = period.store_info(false);
+  if (http_ret < 0) {
+    derr << "failed to store period " << period.get_id() << dendl;
+    return;
+  }
+
+  dout(4) << "period epoch " << period.get_epoch() << " is newer "
+      "than current epoch " << current_period.get_epoch()
+      << ", updating latest epoch and notifying zone" << dendl;
+
+  period.set_latest_epoch(period.get_epoch());
+
+  http_ret = period.store_info(false);
+  if (http_ret < 0) {
+    derr << "failed to store period " << period.get_id() << dendl;
+    return;
+  }
+  // TODO: notify zone for dynamic reconfiguration
 }
 
 class RGWHandler_Period : public RGWHandler_Auth_S3 {
