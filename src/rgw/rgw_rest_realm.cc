@@ -78,16 +78,59 @@ void RGWOp_Period_Post::execute()
 
   // TODO: require period.realm_id to match an existing realm
 
-  // nobody is allowed to push to the master zone
+  auto &realm = store->realm;
+  const auto &current_period = store->current_period;
+
+  // if period id is empty, handle as 'period commit'
+  if (period.get_id().empty()) {
+    // gateway must be in the master zone to commit
+    if (period.get_master_zone() != store->zone.get_id()) {
+      derr << "period commit sent to zone " << store->zone.get_id()
+          << ", not period's master zone " << period.get_master_zone() << dendl;
+      http_ret = -EINVAL; // XXX: error code
+      return;
+    }
+    // period predecessor must match current period
+    if (period.get_predecessor() != current_period.get_id()) {
+      derr << "period predecessor does not match current period "
+          << current_period.get_id() << dendl;
+      http_ret = -ENOENT; // XXX: error code
+      return;
+    }
+    // did the master zone change?
+    if (period.get_master_zone() != current_period.get_master_zone()) {
+      // create with a new period id
+      http_ret = period.create(true);
+      if (http_ret < 0) {
+        derr << "failed to create new period" << dendl;
+        return;
+      }
+      realm.set_current_period(period.get_id());
+      // TODO: notify zone for dynamic reconfiguration
+      return;
+    }
+    // set period as next epoch
+    period.set_id(current_period.get_id());
+    period.set_epoch(current_period.get_epoch() + 1);
+    period.set_predecessor(current_period.get_predecessor());
+
+    // write the period to rados
+    http_ret = period.store_info(false);
+    if (http_ret < 0)
+      derr << "failed to store period " << period.get_id() << dendl;
+
+    realm.set_current_period(period.get_id());
+    // TODO: notify zone for dynamic reconfiguration
+    return;
+  }
+
+  // if it's not period commit, nobody is allowed to push to the master zone
   if (period.get_master_zone() == store->zone.get_id()) {
     dout(10) << "master zone rejecting period id=" << period.get_id()
         << " epoch=" << period.get_epoch() << dendl;
     http_ret = -EINVAL; // XXX: error code
     return;
   }
-
-  auto &realm = store->realm;
-  const auto &current_period = store->current_period;
 
   if (period.get_id() != current_period.get_id()) {
     // new period must follow current period
