@@ -722,7 +722,7 @@ int librados::IoCtxImpl::aio_operate(const object_t& oid,
 
 int librados::IoCtxImpl::aio_read(const object_t oid, AioCompletionImpl *c,
 				  bufferlist *pbl, size_t len, uint64_t off,
-				  uint64_t snapid)
+				  uint64_t snapid, const blkin_trace_info *info)
 {
   if (len > (size_t) INT_MAX)
     return -EDOM;
@@ -733,15 +733,18 @@ int librados::IoCtxImpl::aio_read(const object_t oid, AioCompletionImpl *c,
   c->io = this;
   c->blp = pbl;
 
-  c->tid = objecter->read(oid, oloc,
-		 off, len, snapid, pbl, 0,
-		 onack, &c->objver);
+  ZTracer::Trace trace;
+  if (info)
+    trace.init("rados read", &objecter->trace_endpoint, info);
+
+  c->tid = objecter->read(oid, oloc, off, len, snapid, pbl, 0,
+                          onack, &c->objver, nullptr, 0, &trace);
   return 0;
 }
 
 int librados::IoCtxImpl::aio_read(const object_t oid, AioCompletionImpl *c,
 				  char *buf, size_t len, uint64_t off,
-				  uint64_t snapid)
+				  uint64_t snapid, const blkin_trace_info *info)
 {
   if (len > (size_t) INT_MAX)
     return -EDOM;
@@ -754,9 +757,12 @@ int librados::IoCtxImpl::aio_read(const object_t oid, AioCompletionImpl *c,
   c->bl.push_back(buffer::create_static(len, buf));
   c->blp = &c->bl;
 
-  c->tid = objecter->read(oid, oloc,
-		 off, len, snapid, &c->bl, 0,
-		 onack, &c->objver);
+  ZTracer::Trace trace;
+  if (info)
+    trace.init("rados read", &objecter->trace_endpoint, info);
+
+  c->tid = objecter->read(oid, oloc, off, len, snapid, &c->bl, 0,
+                          onack, &c->objver, nullptr, 0, &trace);
 
   return 0;
 }
@@ -797,7 +803,7 @@ int librados::IoCtxImpl::aio_sparse_read(const object_t oid,
 
 int librados::IoCtxImpl::aio_write(const object_t &oid, AioCompletionImpl *c,
 				   const bufferlist& bl, size_t len,
-				   uint64_t off)
+				   uint64_t off, const blkin_trace_info *info)
 {
   utime_t ut = ceph_clock_now(client->cct);
   ldout(client->cct, 20) << "aio_write " << oid << " " << off << "~" << len << " snapc=" << snapc << " snap_seq=" << snap_seq << dendl;
@@ -811,12 +817,17 @@ int librados::IoCtxImpl::aio_write(const object_t &oid, AioCompletionImpl *c,
   Context *onack = new C_aio_Ack(c);
   Context *onsafe = new C_aio_Safe(c);
 
+  ZTracer::Trace trace;
+  if (info)
+    trace.init("rados write", &objecter->trace_endpoint, info);
+
   c->io = this;
   queue_aio_write(c);
 
   c->tid = objecter->write(oid, oloc,
 		  off, len, snapc, bl, ut, 0,
-		  onack, onsafe, &c->objver);
+		  onack, onsafe, &c->objver,
+		  nullptr, 0, &trace);
 
   return 0;
 }
