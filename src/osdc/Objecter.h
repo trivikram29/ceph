@@ -24,6 +24,7 @@
 #include "common/admin_socket.h"
 #include "common/Timer.h"
 #include "common/RWLock.h"
+#include "common/zipkin_trace.h"
 #include "include/rados/rados_types.hpp"
 
 #include <list>
@@ -1055,6 +1056,7 @@ public:
   Messenger *messenger;
   MonClient *monc;
   Finisher *finisher;
+  ZTracer::Endpoint trace_endpoint;
 private:
   OSDMap    *osdmap;
 public:
@@ -1212,9 +1214,11 @@ public:
     epoch_t last_force_resend;
 
     osd_reqid_t reqid; // explicitly setting reqid
+    ZTracer::Trace trace;
 
     Op(const object_t& o, const object_locator_t& ol, vector<OSDOp>& op,
-       int f, Context *ac, Context *co, version_t *ov, int *offset = NULL) :
+       int f, Context *ac, Context *co, version_t *ov, int *offset = NULL,
+       ZTracer::Trace *parent_trace = nullptr) :
       session(NULL), incarnation(0),
       target(o, ol, f),
       con(NULL),
@@ -1250,6 +1254,9 @@ public:
 
       if (target.base_oloc.key == o)
 	target.base_oloc.key.clear();
+
+      if (parent_trace && parent_trace->valid())
+        trace.init("op", nullptr, parent);
     }
 
     bool operator<(const Op& other) const {
@@ -1879,6 +1886,7 @@ private:
 	   double osd_timeout) :
     Dispatcher(cct_),
     messenger(m), monc(mc), finisher(fin),
+    trace_endpoint("0.0.0.0", 0, "Objecter"),
     osdmap(new OSDMap),
     initialized(0),
     last_tid(0), client_inc(-1), max_linger_id(0),
@@ -2199,7 +2207,8 @@ public:
   ceph_tid_t read(const object_t& oid, const object_locator_t& oloc,
 	     uint64_t off, uint64_t len, snapid_t snap, bufferlist *pbl, int flags,
 	     Context *onfinish,
-	     version_t *objver = NULL, ObjectOperation *extra_ops = NULL) {
+	     version_t *objver = NULL, ObjectOperation *extra_ops = NULL,
+             ZTracer::Trace *parent_trace = nullptr) {
     vector<OSDOp> ops;
     int i = init_ops(ops, 1, extra_ops);
     ops[i].op.op = CEPH_OSD_OP_READ;
@@ -2207,7 +2216,7 @@ public:
     ops[i].op.extent.length = len;
     ops[i].op.extent.truncate_size = 0;
     ops[i].op.extent.truncate_seq = 0;
-    Op *o = new Op(oid, oloc, ops, flags | global_op_flags.read() | CEPH_OSD_FLAG_READ, onfinish, 0, objver);
+    Op *o = new Op(oid, oloc, ops, flags | global_op_flags.read() | CEPH_OSD_FLAG_READ, onfinish, 0, objver, nullptr, parent_trace);
     o->snapid = snap;
     o->outbl = pbl;
     return op_submit(o);
@@ -2300,7 +2309,8 @@ public:
 	      uint64_t off, uint64_t len, const SnapContext& snapc, const bufferlist &bl,
 	      utime_t mtime, int flags,
 	      Context *onack, Context *oncommit,
-	      version_t *objver = NULL, ObjectOperation *extra_ops = NULL) {
+	      version_t *objver = NULL, ObjectOperation *extra_ops = NULL,
+              ZTracer::Trace *parent_trace = nullptr) {
     vector<OSDOp> ops;
     int i = init_ops(ops, 1, extra_ops);
     ops[i].op.op = CEPH_OSD_OP_WRITE;
@@ -2309,7 +2319,7 @@ public:
     ops[i].op.extent.truncate_size = 0;
     ops[i].op.extent.truncate_seq = 0;
     ops[i].indata = bl;
-    Op *o = new Op(oid, oloc, ops, flags | global_op_flags.read() | CEPH_OSD_FLAG_WRITE, onack, oncommit, objver);
+    Op *o = new Op(oid, oloc, ops, flags | global_op_flags.read() | CEPH_OSD_FLAG_WRITE, onack, oncommit, objver, nullptr, parent_trace);
     o->mtime = mtime;
     o->snapc = snapc;
     return op_submit(o);
