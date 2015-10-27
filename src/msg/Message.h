@@ -463,7 +463,8 @@ typedef boost::intrusive_ptr<Message> MessageRef;
 extern Message *decode_message(CephContext *cct, int crcflags,
 			       ceph_msg_header &header,
 			       ceph_msg_footer& footer, bufferlist& front,
-			       bufferlist& middle, bufferlist& data);
+			       bufferlist& middle, bufferlist& data,
+			       Connection* conn);
 inline ostream& operator<<(ostream& out, Message& m) {
   m.print(out);
   if (m.get_header().version)
