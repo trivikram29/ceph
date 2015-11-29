@@ -1126,7 +1126,8 @@ set_target_properties(unittest_librados_config PROPERTIES COMPILE_FLAGS
 add_executable(unittest_rbd_replay EXCLUDE_FROM_ALL
   test_rbd_replay.cc
   $<TARGET_OBJECTS:heap_profiler_objs>
-  $<TARGET_OBJECTS:parse_secret_objs>
+  $<TARGET_OBJECTS:librbd_replay>
+  $<TARGET_OBJECTS:librbd_replay_ios>
 )
 add_test(unittest_rbd_replay unittest_rbd_replay)
 add_dependencies(check unittest_rbd_replay)
@@ -1134,8 +1135,6 @@ target_link_libraries(unittest_rbd_replay
   librbd
   librados
   global
-  librbd_replay
-  librbd_replay_ios
   keyutils
   ${BLKID_LIBRARIES}
   ${CMAKE_DL_LIBS}
@@ -1643,8 +1642,9 @@ target_link_libraries(unittest_librbd
 add_executable(test_librbd_fsx
   librbd/fsx.cc
   $<TARGET_OBJECTS:heap_profiler_objs>
-  ${CMAKE_SOURCE_DIR}/src/common/TextTable.cc
-  ${CMAKE_SOURCE_DIR}/src/common/secret.c
+  $<TARGET_OBJECTS:librbd_api>
+  $<TARGET_OBJECTS:krbd>
+  $<TARGET_OBJECTS:parse_secret_objs>
   )
 target_link_libraries(test_librbd_fsx
   librbd

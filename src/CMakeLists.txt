@@ -301,6 +301,7 @@ set(libcommon_files
   common/pick_address.cc
   common/address_helper.cc
   common/linux_version.c
+  common/ContextCompletion.cc
   osdc/Striper.cc
   osdc/Objecter.cc
   ${arch_files}
@@ -471,13 +472,18 @@ install(TARGETS rados librados-config DESTINATION bin)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/pybind/
   DESTINATION ${PYTHON_INSTDIR})
 
+add_library(krbd OBJECT krbd.cc)
+
 ## dencoder
 set(dencoder_srcs
   test/encoding/ceph_dencoder.cc
-  krbd.cc
-  common/secret.c
-  common/TextTable.cc
+  $<TARGET_OBJECTS:krbd>
+  $<TARGET_OBJECTS:parse_secret_objs>
   )
+if(WITH_RBD)
+  list(APPEND dencoder_srcs
+    $<TARGET_OBJECTS:librbd_replay_types>)
+endif(WITH_RBD)
 if(${WITH_RADOSGW})
   list(APPEND dencoder_srcs
     rgw/rgw_dencoder.cc
@@ -498,11 +504,6 @@ if(${WITH_RADOSGW})
     resolv
   )
 endif(${WITH_RADOSGW})
-if(${WITH_RBD})
-  set(DENCODER_EXTRALIBS
-      ${DENCODER_EXTRALIBS}
-      librbd_replay_types)
-endif(${WITH_RBD})
 target_link_libraries(ceph-dencoder
   librados
   librbd
@@ -713,6 +714,7 @@ target_link_libraries(crushtool global)
 install(TARGETS crushtool DESTINATION bin)
 
 # Support/Tools
+add_subdirectory(tools)
 add_subdirectory(gmock)
 add_subdirectory(test)
 set(cephfs_srcs cephfs.cc)
@@ -730,30 +732,6 @@ target_link_libraries(compressor common snappy)
 #set(ceph_srcs tools/ceph.cc tools/common.cc)
 #add_executable(ceph ${ceph_srcs})
 #target_link_libraries(ceph global ${LIBEDIT_LIBS})
-
-set(ceph_conf_srcs
-  tools/ceph_conf.cc)
-add_executable(ceph-conf ${ceph_conf_srcs})
-target_link_libraries(ceph-conf global)
-install(TARGETS ceph-conf DESTINATION bin)
-
-set(monmaptool_srcs
-  tools/monmaptool.cc)
-add_executable(monmaptool ${monmaptool_srcs})
-target_link_libraries(monmaptool global)
-install(TARGETS monmaptool DESTINATION bin)
-
-set(osdomaptool_srcs
-  tools/osdmaptool.cc)
-add_executable(osdmaptool ${osdomaptool_srcs})
-target_link_libraries(osdmaptool global ${CMAKE_DL_LIBS})
-install(TARGETS osdmaptool DESTINATION bin)
-
-set(ceph_authtool_srcs
-  tools/ceph_authtool.cc)
-add_executable(ceph-authtool ${ceph_authtool_srcs})
-target_link_libraries(ceph-authtool global ${EXTRALIBS} ${CRYPTO_LIBS})
-install(TARGETS ceph-authtool DESTINATION bin)
 
 configure_file(${CMAKE_SOURCE_DIR}/src/ceph-coverage.in
   ${CMAKE_BINARY_DIR}/ceph-coverage @ONLY)
@@ -862,118 +840,13 @@ set(journal_srcs
   journal/Utils.cc)
 add_library(journal ${journal_srcs})
 
-if(${WITH_RBD})
-  set(librbd_srcs
-    krbd.cc
-    common/ContextCompletion.cc
-    librbd/AioCompletion.cc
-    librbd/AioImageRequest.cc
-    librbd/AioImageRequestWQ.cc
-    librbd/AioObjectRequest.cc
-    librbd/AsyncFlattenRequest.cc
-    librbd/AsyncObjectThrottle.cc
-    librbd/AsyncOperation.cc
-    librbd/AsyncRequest.cc
-    librbd/AsyncResizeRequest.cc
-    librbd/AsyncTrimRequest.cc
-    librbd/CopyupRequest.cc
-    librbd/DiffIterate.cc
-    librbd/ImageCtx.cc
-    librbd/ImageWatcher.cc
-    librbd/internal.cc
-    librbd/Journal.cc
-    librbd/JournalReplay.cc
-    librbd/JournalTypes.cc
-    librbd/librbd.cc
-    librbd/LibrbdAdminSocketHook.cc
-    librbd/LibrbdWriteback.cc
-    librbd/ObjectMap.cc
-    librbd/RebuildObjectMapRequest.cc
-    librbd/WatchNotifyTypes.cc)
-  add_library(librbd ${CEPH_SHARED} ${librbd_srcs}
-    $<TARGET_OBJECTS:osdc_rbd_objs>
-    $<TARGET_OBJECTS:common_util_obj>)
-  target_link_libraries(librbd PRIVATE librados common cls_lock_client cls_rbd_client
-    ${CMAKE_DL_LIBS})
-  if(${ENABLE_SHARED})
-    set_target_properties(librbd PROPERTIES VERSION "1.0.0" SOVERSION "1"
-      OUTPUT_NAME rbd)
-  endif(${ENABLE_SHARED})
-  install(TARGETS librados librbd DESTINATION lib)
-  set(rbd_srcs
-    tools/rbd/rbd.cc
-    tools/rbd/ArgumentTypes.cc
-    tools/rbd/IndentStream.cc
-    tools/rbd/OptionPrinter.cc
-    tools/rbd/Shell.cc
-    tools/rbd/Utils.cc
-    tools/rbd/action/BenchWrite.cc
-    tools/rbd/action/Children.cc
-    tools/rbd/action/Clone.cc
-    tools/rbd/action/Copy.cc
-    tools/rbd/action/Create.cc
-    tools/rbd/action/Diff.cc
-    tools/rbd/action/DiskUsage.cc
-    tools/rbd/action/Export.cc
-    tools/rbd/action/ExportDiff.cc
-    tools/rbd/action/Feature.cc
-    tools/rbd/action/Flatten.cc
-    tools/rbd/action/ImageMeta.cc
-    tools/rbd/action/Import.cc
-    tools/rbd/action/ImportDiff.cc
-    tools/rbd/action/Info.cc
-    tools/rbd/action/Kernel.cc
-    tools/rbd/action/List.cc
-    tools/rbd/action/Lock.cc
-    tools/rbd/action/MergeDiff.cc
-    tools/rbd/action/ObjectMap.cc
-    tools/rbd/action/Remove.cc
-    tools/rbd/action/Rename.cc
-    tools/rbd/action/Resize.cc
-    tools/rbd/action/Snap.cc
-    tools/rbd/action/Status.cc
-    tools/rbd/action/Watch.cc
-    common/TextTable.cc)
-  add_executable(rbd ${rbd_srcs} $<TARGET_OBJECTS:common_util_obj>
-    $<TARGET_OBJECTS:parse_secret_objs>
-    $<TARGET_OBJECTS:heap_profiler_objs>)
-  set_target_properties(rbd PROPERTIES OUTPUT_NAME rbd)
-  target_link_libraries(rbd librbd librados global common keyutils udev
-    boost_regex boost_program_options
-    ${BLKID_LIBRARIES} ${CMAKE_DL_LIBS} ${TCMALLOC_LIBS})
-  install(TARGETS rbd DESTINATION bin)
+if(WITH_RBD)
+  add_subdirectory(librbd)
+  add_subdirectory(rbd_replay)
+
   install(PROGRAMS ${CMAKE_SOURCE_DIR}/src/ceph-rbdnamer DESTINATION bin)
   install(PROGRAMS ${CMAKE_SOURCE_DIR}/src/rbdmap DESTINATION bin)
-
-  set(librbd_replay_types_srcs
-      rbd_replay/ActionTypes.cc)
-  add_library(librbd_replay_types STATIC ${librbd_replay_types_srcs})
-
-  set(librbd_replay_srcs
-      rbd_replay/actions.cc
-      rbd_replay/BufferReader.cc
-      rbd_replay/ImageNameMap.cc
-      rbd_replay/PendingIO.cc
-      rbd_replay/rbd_loc.cc
-      rbd_replay/Replayer.cc)
-  add_library(librbd_replay STATIC ${librbd_replay_srcs})
-  target_link_libraries(librbd_replay PRIVATE librbd_replay_types librbd librados global udev)
-
-  add_executable(rbd_replay
-    rbd_replay/rbd-replay.cc
-    $<TARGET_OBJECTS:parse_secret_objs>
-    )
-  target_link_libraries(rbd_replay librbd librados global librbd_replay keyutils)
-  install(TARGETS rbd_replay DESTINATION bin)
-
-  set(librbd_replay_ios_srcs
-      rbd_replay/ios.cc)
-  add_library(librbd_replay_ios STATIC ${librbd_replay_ios_srcs})
-  target_link_libraries(librbd_replay_ios librbd librados global)
-
-  install(TARGETS librbd_replay librbd_replay_ios DESTINATION lib)
-
-endif(${WITH_RBD})
+endif(WITH_RBD)
 
 # RadosGW
 if(${WITH_KVS})
