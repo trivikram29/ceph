@@ -163,6 +163,11 @@ unittest_histogram_CXXFLAGS = $(UNITTEST_CXXFLAGS)
 unittest_histogram_LDADD = $(UNITTEST_LDADD) $(CEPH_GLOBAL)
 check_TESTPROGRAMS += unittest_histogram
 
+unittest_preallocator_SOURCES = test/common/test_preallocator.cc
+unittest_preallocator_CXXFLAGS = $(UNITTEST_CXXFLAGS)
+unittest_preallocator_LDADD = $(UNITTEST_LDADD)
+check_TESTPROGRAMS += unittest_preallocator
+
 unittest_prioritized_queue_SOURCES = test/common/test_prioritized_queue.cc
 unittest_prioritized_queue_CXXFLAGS = $(UNITTEST_CXXFLAGS)
 unittest_prioritized_queue_LDADD = $(UNITTEST_LDADD) $(CEPH_GLOBAL)

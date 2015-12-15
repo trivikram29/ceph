@@ -476,6 +476,12 @@ target_link_libraries(unittest_histogram global
 set_target_properties(unittest_histogram
   PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
 
+# unittest_preallocator (header-only)
+add_executable(unittest_preallocator EXCLUDE_FROM_ALL common/test_preallocator.cc)
+add_test(preallocator unittest_preallocator)
+target_link_libraries(unittest_preallocator ${UNITTEST_LIBS})
+set_target_properties(unittest_preallocator PROPERTIES COMPILE_FLAGS ${UNITTEST_CXX_FLAGS})
+
 # unittest_prioritized_queue
 add_executable(unittest_prioritized_queue EXCLUDE_FROM_ALL
   common/test_prioritized_queue.cc
