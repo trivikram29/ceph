@@ -1,9 +1,9 @@
 #include "common/preallocator.h"
+#include "common/prealloc_vector.h"
 
 #include <list>
 #include <map>
 #include <set>
-#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -243,6 +243,25 @@ TEST(Preallocator, Vector)
   auto c = std::vector<int, Preallocator<int, 5>>{{{allocs, deallocs}}};
   c.reserve(5);
 
+  c.push_back(1);
+  c.push_back(2);
+  c.push_back(3);
+  c.push_back(4);
+  c.push_back(5);
+  ASSERT_TRUE(allocs.empty());
+  c.push_back(6);
+  ASSERT_EQ(Allocs({{c.data(), 10}}), allocs); // overflows
+
+  auto expected = {1, 2, 3, 4, 5, 6};
+  ASSERT_TRUE(std::equal(std::begin(expected), std::end(expected),
+                         std::begin(c)));
+}
+
+TEST(Preallocator, PreallocVector)
+{
+  Allocs allocs, deallocs;
+  using vector_type = ceph::prealloc_vector<int, 5, RecordingAllocator<int>>;
+  vector_type c(vector_type::allocator_type{{allocs, deallocs}});
   c.push_back(1);
   c.push_back(2);
   c.push_back(3);
