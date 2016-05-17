@@ -5592,6 +5592,11 @@ void OSD::ms_fast_dispatch(Message *m)
     tracepoint(osd, ms_fast_dispatch, reqid.name._type,
         reqid.name._num, reqid.tid, reqid.inc);
   }
+
+  if(m->get_header().type == CEPH_MSG_OSD_OP)
+  {
+    (static_cast<MOSDOp*>(m))->finish_decode();
+  }
   if (m->trace)
     op->osd_trace.init("osd op", &trace_endpoint, &m->trace);
   OSDMapRef nextmap = service.get_nextmap_reserved();

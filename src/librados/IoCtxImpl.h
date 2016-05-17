@@ -174,6 +174,9 @@ struct librados::IoCtxImpl {
   int aio_read(const object_t oid, AioCompletionImpl *c,
 	       bufferlist *pbl, size_t len, uint64_t off, uint64_t snapid,
 	       const blkin_trace_info *info = nullptr);
+  int aio_read(const object_t oid, AioCompletionImpl *c,           
+               bufferlist *pbl, size_t len, uint64_t off, uint64_t snapid,
+               int64_t request_id);
   int aio_read(object_t oid, AioCompletionImpl *c,
 	       char *buf, size_t len, uint64_t off, uint64_t snapid,
 	       const blkin_trace_info *info = nullptr);
@@ -183,6 +186,9 @@ struct librados::IoCtxImpl {
   int aio_write(const object_t &oid, AioCompletionImpl *c,
 		const bufferlist& bl, size_t len, uint64_t off,
 		const blkin_trace_info *info = nullptr);
+  int aio_write(const object_t &oid, AioCompletionImpl *c,         
+                const bufferlist& bl, size_t len, uint64_t off,
+                int64_t request_id);
   int aio_append(const object_t &oid, AioCompletionImpl *c,
 		 const bufferlist& bl, size_t len);
   int aio_write_full(const object_t &oid, AioCompletionImpl *c,

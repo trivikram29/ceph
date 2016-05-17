@@ -2834,6 +2834,7 @@ void ReplicatedPG::execute_ctx(OpContext *ctx)
   ctx->reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0,
 			       successful_write);
 
+  ctx->reply->trace = op->pg_trace;
   // Write operations aren't allowed to return a data payload because
   // we can't do so reliably. If the client has to resend the request
   // and it has already been applied, we will return 0 with no

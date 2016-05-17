@@ -3005,6 +3005,10 @@ void Objecter::handle_osd_op_reply(MOSDOpReply *m)
 {
   ldout(cct, 10) << "in handle_osd_op_reply" << dendl;
 
+  if(m->trace)
+  {
+    m->trace.event("handling osd op reply");
+  }
   // get pio
   ceph_tid_t tid = m->get_tid();
 

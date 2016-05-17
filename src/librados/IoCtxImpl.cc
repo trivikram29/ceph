@@ -743,6 +743,27 @@ int librados::IoCtxImpl::aio_read(const object_t oid, AioCompletionImpl *c,
 }
 
 int librados::IoCtxImpl::aio_read(const object_t oid, AioCompletionImpl *c,
+                                  bufferlist *pbl, size_t len, uint64_t off,
+                                  uint64_t snapid, int64_t request_id)
+{
+  if (len > (size_t) INT_MAX)
+    return -EDOM;
+
+  Context *onack = new C_aio_Ack(c);
+
+  c->is_read = true;
+  c->io = this;
+  c->blp = pbl;
+
+  ZTracer::Trace trace;
+  trace.init("rados read", &objecter->trace_endpoint, NULL, request_id);
+
+  c->tid = objecter->read(oid, oloc, off, len, snapid, pbl, 0,
+                          onack, &c->objver, nullptr, 0, &trace);
+  return 0;
+}
+
+int librados::IoCtxImpl::aio_read(const object_t oid, AioCompletionImpl *c,
 				  char *buf, size_t len, uint64_t off,
 				  uint64_t snapid, const blkin_trace_info *info)
 {
@@ -828,6 +849,36 @@ int librados::IoCtxImpl::aio_write(const object_t &oid, AioCompletionImpl *c,
 		  off, len, snapc, bl, ut, 0,
 		  onack, onsafe, &c->objver,
 		  nullptr, 0, &trace);
+
+  return 0;
+}
+
+int librados::IoCtxImpl::aio_write(const object_t &oid, AioCompletionImpl *c,
+                                   const bufferlist& bl, size_t len,
+                                   uint64_t off, int64_t request_id)
+{
+  utime_t ut = ceph_clock_now(client->cct);
+  ldout(client->cct, 20) << "aio_write " << oid << " " << off << "~" << len << " snapc=" << snapc << " snap_seq=" << snap_seq << dendl;
+
+  if (len > UINT_MAX/2)
+    return -E2BIG;
+  /* can't write to a snapshot */
+  if (snap_seq != CEPH_NOSNAP)
+    return -EROFS;
+
+  Context *onack = new C_aio_Ack(c);
+  Context *onsafe = new C_aio_Safe(c);
+
+  ZTracer::Trace trace;
+  trace.init("rados write", &objecter->trace_endpoint, NULL, request_id);
+
+  c->io = this;
+  queue_aio_write(c);
+
+  c->tid = objecter->write(oid, oloc,
+                  off, len, snapc, bl, ut, 0,
+                  onack, onsafe, &c->objver,
+                  nullptr, 0, &trace);
 
   return 0;
 }

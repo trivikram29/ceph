@@ -1694,6 +1694,20 @@ int librados::IoCtx::aio_read(const std::string& oid, librados::AioCompletion *c
   return io_ctx_impl->aio_read(oid, c->pc, pbl, len, off, snapid);
 }
 
+int librados::IoCtx::aio_read(const std::string& oid, librados::AioCompletion *c,
+                              bufferlist *pbl, size_t len, uint64_t off, int64_t request_id)
+{
+  return io_ctx_impl->aio_read(oid, c->pc, pbl, len, off,
+                               io_ctx_impl->snap_seq, request_id);
+}
+
+int librados::IoCtx::aio_read(const std::string& oid, librados::AioCompletion *c,
+                              bufferlist *pbl, size_t len, uint64_t off,
+                              uint64_t snapid, int64_t request_id)
+{
+  return io_ctx_impl->aio_read(oid, c->pc, pbl, len, off, snapid, request_id);
+}
+
 int librados::IoCtx::aio_exec(const std::string& oid,
 			      librados::AioCompletion *c, const char *cls,
 			      const char *method, bufferlist& inbl,
@@ -1724,6 +1738,24 @@ int librados::IoCtx::aio_write(const std::string& oid, librados::AioCompletion *
 			       const bufferlist& bl, size_t len, uint64_t off)
 {
   return io_ctx_impl->aio_write(oid, c->pc, bl, len, off);
+}
+
+int librados::IoCtx::aio_write(const std::string& oid, librados::AioCompletion *c,
+                               const bufferlist& bl, size_t len, uint64_t off, int64_t request_id)
+{
+  return io_ctx_impl->aio_write(oid, c->pc, bl, len, off, request_id);
+}
+
+int64_t librados::IoCtx::get_unique_id()
+{
+  int64_t a;
+  a = rand();
+  a = a << 32;
+  int b = rand();
+  a = a + b;
+  if (a<0)
+    a = !a;
+  return a;
 }
 
 int librados::IoCtx::aio_append(const std::string& oid, librados::AioCompletion *c,

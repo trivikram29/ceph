@@ -630,6 +630,9 @@ namespace librados
     // Close our pool handle
     void close();
 
+    //Generate a unique_id
+    int64_t get_unique_id(); 
+
     // deep copy
     void dup(const IoCtx& rhs);
 
@@ -826,6 +829,9 @@ namespace librados
 
     int aio_read(const std::string& oid, AioCompletion *c,
 		 bufferlist *pbl, size_t len, uint64_t off);
+    int aio_read(const std::string& oid, AioCompletion *c,
+                 bufferlist *pbl, size_t len, uint64_t off, int64_t request_id);
+
     /**
      * Asynchronously read from an object at a particular snapshot
      *
@@ -846,6 +852,8 @@ namespace librados
      */
     int aio_read(const std::string& oid, AioCompletion *c,
 		 bufferlist *pbl, size_t len, uint64_t off, uint64_t snapid);
+    int aio_read(const std::string& oid, AioCompletion *c,
+                 bufferlist *pbl, size_t len, uint64_t off, uint64_t snapid, int64_t request_id);
     int aio_sparse_read(const std::string& oid, AioCompletion *c,
 			std::map<uint64_t,uint64_t> *m, bufferlist *data_bl,
 			size_t len, uint64_t off);
@@ -876,6 +884,8 @@ namespace librados
 			size_t len, uint64_t off, uint64_t snapid);
     int aio_write(const std::string& oid, AioCompletion *c, const bufferlist& bl,
 		  size_t len, uint64_t off);
+    int aio_write(const std::string& oid, AioCompletion *c, const bufferlist& bl,
+                  size_t len, uint64_t off, int64_t request_id);
     int aio_append(const std::string& oid, AioCompletion *c, const bufferlist& bl,
 		  size_t len);
     int aio_write_full(const std::string& oid, AioCompletion *c, const bufferlist& bl);
