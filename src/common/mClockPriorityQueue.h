@@ -34,11 +34,12 @@ namespace ceph {
 
   namespace dmc = crimson::dmclock;
 
-  template <typename T, typename K>
+  template <typename T, typename K, typename ReqPm = dmc::ReqParams, typename RespPm = dmc::PhaseType>
   class mClockQueue : public OpQueue <T, K> {
 
     using priority_t = unsigned;
     using cost_t = unsigned;
+    using Retn = std::pair<T, RespPm>;
 
     typedef std::list<std::pair<cost_t, T> > ListPairs;
 
@@ -303,6 +304,12 @@ namespace ceph {
       queue.add_request(item, cl, cost);
     }
 
+    void _enqueue(K cl, unsigned priority, unsigned cost, T item,
+ 		  const ReqPm& req_params) {
+       // priority is ignored
+       queue.add_request(item, cl, req_params, cost);
+     }
+ 
     void enqueue_front(K cl,
 		       unsigned priority,
 		       unsigned cost,
@@ -338,6 +345,32 @@ namespace ceph {
       return *(retn.request);
     }
 
+    Retn _dequeue() {
+       assert(!empty());
+       RespPm resp_params = RespPm();
+ 
+       if (!(high_queue.empty())) {
+ 	T ret = high_queue.rbegin()->second.front().second;
+ 	high_queue.rbegin()->second.pop_front();
+ 	if (high_queue.rbegin()->second.empty()) {
+ 	  high_queue.erase(high_queue.rbegin()->first);
+ 	}
+ 	return std::make_pair(ret, resp_params);
+       }
+ 
+       if (!queue_front.empty()) {
+ 	T ret = queue_front.front().second;
+ 	queue_front.pop_front();
+ 	return std::make_pair(ret, resp_params);
+       }
+ 
+       auto pr = queue.pull_request();
+       assert(pr.is_retn());
+       auto& retn = pr.get_retn();
+       resp_params = retn.phase;
+       return std::make_pair(*(retn.request), resp_params);
+     }
+ 
     void dump(ceph::Formatter *f) const override final {
       f->open_array_section("high_queues");
       for (typename SubQueues::const_iterator p = high_queue.begin();

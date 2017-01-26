@@ -22,6 +22,8 @@
 #include "osd/OpRequest.h"
 #include "osd/PG.h"
 
+#include "common/mClockCommon.h"
+#include "messages/MOSDOp.h"
 
 class OSD;
 
@@ -68,6 +70,8 @@ class PGQueueable {
   entity_inst_t owner;
 
   unsigned dmclock_reservation, dmclock_weight, dmclock_limit;
+  dmc::ReqParams qos_params;
+  dmc::PhaseType qos_resp;
 
   struct RunVis : public boost::static_visitor<> {
     OSD *osd;
@@ -100,23 +104,29 @@ public:
       owner(op->get_req()->get_source_inst()),
       dmclock_reservation(op->get_req()->get_dmclock_reservation()),
       dmclock_weight(op->get_req()->get_dmclock_weight()),
-      dmclock_limit(op->get_req()->get_dmclock_limit())
-  {}
+      dmclock_limit(op->get_req()->get_dmclock_limit()),
+      qos_resp(dmc::PhaseType::reservation)
+  {
+    if (op->get_req()->get_type() == CEPH_MSG_OSD_OP) {
+      MOSDOp *m = static_cast<MOSDOp*>(op->get_req());
+      qos_params = m->get_qos_params();
+    }
+  }
   PGQueueable(
     const PGSnapTrim &op, int cost, unsigned priority, utime_t start_time,
     const entity_inst_t &owner)
     : qvariant(op), cost(cost), priority(priority), start_time(start_time),
-      owner(owner) {}
+      owner(owner), qos_resp(dmc::PhaseType::reservation) {}
   PGQueueable(
     const PGScrub &op, int cost, unsigned priority, utime_t start_time,
     const entity_inst_t &owner)
     : qvariant(op), cost(cost), priority(priority), start_time(start_time),
-      owner(owner) {}
+      owner(owner), qos_resp(dmc::PhaseType::reservation) {}
   PGQueueable(
     const PGRecovery &op, int cost, unsigned priority, utime_t start_time,
     const entity_inst_t &owner)
     : qvariant(op), cost(cost), priority(priority), start_time(start_time),
-      owner(owner) {}
+      owner(owner), qos_resp(dmc::PhaseType::reservation) {}
 
   friend std::ostream& operator<<(std::ostream&, const PGQueueable&);
 
@@ -140,6 +150,9 @@ public:
   unsigned get_dmclock_weight() const { return dmclock_weight; }
   unsigned get_dmclock_limit() const { return dmclock_limit; }
   const QVariant& get_variant() const { return qvariant; }
+  dmc::ReqParams get_qos_params() const { return qos_params; }
+  dmc::PhaseType get_qos_resp() const { return qos_resp; }
+  void set_qos_resp(dmc::PhaseType qresp) { qos_resp = qresp; }
 }; // class PGQueueable
 
 

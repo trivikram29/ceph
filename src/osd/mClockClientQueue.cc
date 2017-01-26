@@ -68,7 +68,7 @@ namespace ceph {
       "client_name:" << client.first.first.name <<
       "client_address:" << client.first.first.addr <<
       dendl;
-      dout(20) << "Client's dmclock variables " << client.first.second << dendl;
+      dout(1) << "Client's dmclock variables " << client.first.second << dendl;
       return dmc::ClientInfo(client.first.second.reservation, client.first.second.weight, client.first.second.limit);
       //return mclock_op_tags->client_op;
     case osd_op_type_t::osd_subop:
@@ -163,7 +163,11 @@ namespace ceph {
 					 unsigned priority,
 					 unsigned cost,
 					 Request item) {
-    queue.enqueue(get_inner_client(cl, item), priority, cost, item);
+  //  queue.enqueue(get_inner_client(cl, item), priority, cost, item);
+    queue._enqueue(get_inner_client(cl, item), priority, cost, item,
+		   item.second.get_qos_params());
+    dout(1) << "vicky's dmclock shard parameters  " << item.second.get_qos_params() << dendl;
+
   }
 
   // Enqueue the op in the front of the regular queue
@@ -176,7 +180,11 @@ namespace ceph {
 
   // Return an op to be dispatch
   inline Request mClockClientQueue::dequeue() {
-    return queue.dequeue();
+   // return queue.dequeue();
+    std::pair<Request, dmc::PhaseType> retn = queue._dequeue();
+    retn.first.second.set_qos_resp(retn.second);
+    dout(1) << "vicky's deque dmclock shard parameters  " << retn.second << dendl;
+    return retn.first;
   }
 
   std::ostream& operator<<(std::ostream& out, const Request& req) {

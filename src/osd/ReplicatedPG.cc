@@ -1448,7 +1448,7 @@ void ReplicatedPG::do_pg_op(OpRequestRef op)
   // reply
   MOSDOpReply *reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(),
 				       CEPH_OSD_FLAG_ACK | CEPH_OSD_FLAG_ONDISK,
-				       false);
+				       false, op->qos_resp);
   reply->claim_op_out_data(ops);
   reply->set_result(result);
   reply->set_reply_versions(info.last_update, info.last_user_version);
@@ -1932,7 +1932,8 @@ void ReplicatedPG::do_op(OpRequestRef& op)
       } else {
 	if (m->wants_ack()) {
 	  if (already_ack(replay_version)) {
-	    MOSDOpReply *reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, false);
+	    MOSDOpReply *reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0,
+                                                 false, op->qos_resp);
 	    reply->add_flags(CEPH_OSD_FLAG_ACK);
 	    reply->set_reply_versions(replay_version, user_version);
 	    osd->send_message_osd_client(reply, m->get_connection());
@@ -2304,7 +2305,7 @@ void ReplicatedPG::record_write_error(OpRequestRef op, const hobject_t &soid,
 	MOSDOpReply *reply = orig_reply;
 	if (reply == nullptr) {
 	  reply = new MOSDOpReply(m, r, get_osdmap()->get_epoch(),
-				  flags, true);
+				  flags, true, op->qos_resp);
 	}
 	dout(10) << " sending commit on " << *m << " " << reply << dendl;
 	osd->send_message_osd_client(reply, m->get_connection());
@@ -2586,7 +2587,7 @@ void ReplicatedPG::do_cache_redirect(OpRequestRef op)
   MOSDOp *m = static_cast<MOSDOp*>(op->get_req());
   int flags = m->get_flags() & (CEPH_OSD_FLAG_ACK|CEPH_OSD_FLAG_ONDISK);
   MOSDOpReply *reply = new MOSDOpReply(m, -ENOENT,
-				       get_osdmap()->get_epoch(), flags, false);
+				       get_osdmap()->get_epoch(), flags, false, op->qos_resp);
   request_redirect_t redir(m->get_object_locator(), pool.info.tier_of);
   reply->set_redirect(redir);
   dout(10) << "sending redirect to pool " << pool.info.tier_of << " for op "
@@ -2725,7 +2726,7 @@ void ReplicatedPG::finish_proxy_read(hobject_t oid, ceph_tid_t tid, int r)
 
   MOSDOp *m = static_cast<MOSDOp*>(op->get_req());
   OpContext *ctx = new OpContext(op, m->get_reqid(), prdop->ops, this);
-  ctx->reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, false);
+  ctx->reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, false, op->qos_resp);
   ctx->user_at_version = prdop->user_version;
   ctx->data_off = prdop->data_offset;
   ctx->ignore_log_op_stats = true;
@@ -2898,7 +2899,8 @@ void ReplicatedPG::finish_proxy_write(hobject_t oid, ceph_tid_t tid, int r)
     if (reply)
       pwop->ctx->reply = NULL;
     else {
-      reply = new MOSDOpReply(m, r, get_osdmap()->get_epoch(), 0, true);
+      reply = new MOSDOpReply(m, r, get_osdmap()->get_epoch(), 0, true,
+                              pwop->op->qos_resp);
       reply->set_reply_versions(eversion_t(), pwop->user_version);
     }
     reply->add_flags(CEPH_OSD_FLAG_ACK | CEPH_OSD_FLAG_ONDISK);
@@ -2912,7 +2914,8 @@ void ReplicatedPG::finish_proxy_write(hobject_t oid, ceph_tid_t tid, int r)
     if (reply)
       pwop->ctx->reply = NULL;
     else {
-      reply = new MOSDOpReply(m, r, get_osdmap()->get_epoch(), 0, true);
+      reply = new MOSDOpReply(m, r, get_osdmap()->get_epoch(), 0, true,
+                              pwop->op->qos_resp);
       reply->set_reply_versions(eversion_t(), pwop->user_version);
     }
     reply->add_flags(CEPH_OSD_FLAG_ACK);
@@ -3120,7 +3123,7 @@ void ReplicatedPG::execute_ctx(OpContext *ctx)
   bool successful_write = !ctx->op_t->empty() && op->may_write() && result >= 0;
   // prepare the reply
   ctx->reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0,
-			       successful_write);
+			       successful_write, op->qos_resp);
 
   // Write operations aren't allowed to return a data payload because
   // we can't do so reliably. If the client has to resend the request
@@ -3209,7 +3212,8 @@ void ReplicatedPG::execute_ctx(OpContext *ctx)
 	if (reply)
 	  ctx->reply = NULL;
 	else {
-	  reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, true);
+	  reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, true,
+                                  ctx->op->qos_resp);
 	  reply->set_reply_versions(ctx->at_version,
 				    ctx->user_at_version);
 	}
@@ -3238,7 +3242,8 @@ void ReplicatedPG::execute_ctx(OpContext *ctx)
 	if (reply)
 	  ctx->reply = NULL;
 	else {
-	  reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, true);
+	  reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, true,
+                                  ctx->op->qos_resp);
 	  reply->set_reply_versions(ctx->at_version,
 				    ctx->user_at_version);
 	}
@@ -7338,7 +7343,8 @@ void ReplicatedPG::fill_in_copy_get_noent(OpRequestRef& op, hobject_t oid,
     ::encode(reply_obj, osd_op.outdata, features);
   }
   osd_op.rval = -ENOENT;
-  MOSDOpReply *reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, false);
+  MOSDOpReply *reply = new MOSDOpReply(m, 0, get_osdmap()->get_epoch(), 0, false,
+                                       op->qos_resp);
   reply->claim_op_out_data(m->ops);
   reply->set_result(-ENOENT);
   reply->add_flags(CEPH_OSD_FLAG_ACK | CEPH_OSD_FLAG_ONDISK);
